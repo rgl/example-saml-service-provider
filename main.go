@@ -30,6 +30,7 @@ var indexTemplate = template.Must(template.New("Index").Parse(`<!DOCTYPE html>
 <html>
 <head>
 <title>example-saml-service-provider</title>
+<link rel="shortcut icon" href="#"/>
 <style>
 body {
 	font-family: monospace;
@@ -69,7 +70,10 @@ table > tbody > tr:hover {
 	<table>
 		<caption>Actions</caption>
 		<tbody>
+			<tr><td><a href="/">home</a></td></tr>
 			<tr><td><a href="/login">login</a></td></tr>
+			<tr><td><a href="/logout">logout</a></td></tr>
+			<tr><td><a href="/saml/metadata">metadata</a></td></tr>
 		</tbody>
 	</table>
 	{{- if .SAMLAttributes }}
@@ -106,6 +110,16 @@ func (a keyValues) Less(i, j int) bool {
 
 type indexData struct {
 	SAMLAttributes keyValues
+}
+
+func OptionalAccount(m *samlsp.Middleware, handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _ := m.Session.GetSession(r)
+		if session != nil {
+			r = r.WithContext(samlsp.ContextWithSession(r.Context(), session))
+		}
+		handler.ServeHTTP(w, r)
+	})
 }
 
 func getSAMLAttributes(s samlsp.Session) keyValues {
@@ -153,6 +167,52 @@ func index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// TODO why samltest.id ends up in a redirect to http://localhost:8000/saml/slo?
+// see https://github.com/crewjam/saml/issues/489
+func logout(samlMiddleware *samlsp.Middleware, w http.ResponseWriter, r *http.Request) {
+	var u *url.URL
+	var err error
+
+	session, _ := samlMiddleware.Session.GetSession(r)
+	if session != nil {
+		sa, ok := session.(samlsp.SessionWithAttributes)
+		if !ok {
+			http.Error(w, "unable to cast session", http.StatusInternalServerError)
+			return
+		}
+
+		samlAttributes := sa.GetAttributes()
+
+		nameID := samlAttributes.Get("urn:oasis:names:tc:SAML:attribute:subject-id")
+		if nameID == "" {
+			nameID = samlAttributes.Get("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")
+		}
+		if nameID == "" {
+			http.Error(w, "unable to infer SAML nameID", http.StatusBadRequest)
+			return
+		}
+
+		u, err = samlMiddleware.ServiceProvider.MakeRedirectLogoutRequest(nameID, "")
+		if err != nil {
+			http.Error(w, "unable to create redirect url", http.StatusInternalServerError)
+			log.Panicf("Failed to MakeRedirectLogoutRequest: %s", err)
+			return
+		}
+	} else {
+		u = &url.URL{
+			Path: "/",
+		}
+	}
+
+	err = samlMiddleware.Session.DeleteSession(w, r)
+	if err != nil {
+		log.Panicf("Failed to delete session: %s", err)
+	}
+
+	w.Header().Add("Location", u.String())
+	w.WriteHeader(http.StatusFound)
 }
 
 func main() {
@@ -204,6 +264,7 @@ func main() {
 		Certificate:       keyPair.Leaf,
 		IDPMetadata:       idpMetadata,
 		AllowIDPInitiated: true,
+		SignRequest:       true,
 	})
 
 	buf, err := xml.MarshalIndent(samlMiddleware.ServiceProvider.Metadata(), "", "  ")
@@ -215,8 +276,15 @@ func main() {
 		log.Printf("Warning: failed to save the service provider metadata to local file: %v", err)
 	}
 
-	http.Handle("/", http.HandlerFunc(index))
+	http.Handle("/", OptionalAccount(samlMiddleware, http.HandlerFunc(index)))
 	http.Handle("/login", samlMiddleware.RequireAccount(http.HandlerFunc(index)))
+	http.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+		logout(samlMiddleware, w, r)
+	})
+	http.HandleFunc("/saml/slo", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Location", "/")
+		w.WriteHeader(http.StatusFound)
+	})
 	http.Handle("/saml/", samlMiddleware)
 	log.Printf("Service provider listening at %s", rootURL)
 	http.ListenAndServe(":"+rootURL.Port(), nil)

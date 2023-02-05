@@ -87,3 +87,11 @@ You should see a list of SAML Attributes/Claims. Something like:
 | `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name`          | `rui_example.com#EXT#@example.onmicrosoft.com`                                        |
 | `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname`       | `Lopes`                                                                               |
 | `SessionIndex`                                                        | `_00000000-0000-0000-0000-000000000000`                                               |
+
+# Troubleshoot
+
+* To debug a SAML request inside a URL redirect, edit the `url` property inside
+  the `decode-saml-request-url.py` file and execute it to see the SAML request
+  XML document.
+  * The `SAMLRequest` query string value is encoded as
+    `zlib.deflate(base64encode(saml_request_xml_document))`.
