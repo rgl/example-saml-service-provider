@@ -229,6 +229,7 @@ func main() {
 		log.Fatalf("\nERROR You MUST NOT pass any positional arguments")
 	}
 
+	log.Printf("Loading the service provider key pair...")
 	keyPair, err := tls.LoadX509KeyPair(
 		"example-saml-service-provider-crt.pem",
 		"example-saml-service-provider-key.pem")
@@ -240,6 +241,7 @@ func main() {
 		log.Panicf("Failed to parse the service provider certificate: %v", err)
 	}
 
+	log.Printf("Fetching the IDP metadata...")
 	idpMetadataURL, err := url.Parse(*idpMetadataFlag)
 	if err != nil {
 		log.Panicf("Failed to parse the IDP metadata url: %v", err)
@@ -286,6 +288,6 @@ func main() {
 		w.WriteHeader(http.StatusFound)
 	})
 	http.Handle("/saml/", samlMiddleware)
-	log.Printf("Service provider listening at %s", rootURL)
+	log.Printf("Starting the service provider at %s", rootURL)
 	http.ListenAndServe(":"+rootURL.Port(), nil)
 }
