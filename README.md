@@ -26,7 +26,7 @@ http://localhost:8000
 
 Open the [Azure Portal](https://portal.azure.com).
 
-Select the `Azure Active Directy` resource.
+Select the `Azure Active Directory` resource.
 
 Click the `Manage`, `Enterprise applications` menu.
 
