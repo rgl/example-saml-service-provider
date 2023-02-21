@@ -24,6 +24,8 @@ http://localhost:8000
 
 # Usage (Azure AD IdP)
 
+**NB** You can also [use terraform to automatically create and configure](https://github.com/rgl/example-saml-service-provider-azure) the resources described in this section.
+
 Open the [Azure Portal](https://portal.azure.com).
 
 Select the `Azure Active Directory` resource.
