@@ -18,8 +18,15 @@ import (
 	"github.com/crewjam/saml/samlsp"
 )
 
-var indexTextTemplate = template.Must(template.New("Index").Parse(`# SAML Attributes
-{{- range $kv := .SAMLAttributes}}
+var indexTextTemplate = template.Must(template.New("Index").Parse(`# Session Claims
+{{- range $kv := .SessionClaims }}
+{{- range .Values }}
+{{$kv.Name}}: {{.}}
+{{- end}}
+{{- end}}
+
+# SAML Attributes
+{{- range $kv := .SAMLClaims }}
 {{- range .Values }}
 {{$kv.Name}}: {{.}}
 {{- end}}
@@ -76,11 +83,26 @@ table > tbody > tr:hover {
 			<tr><td><a href="/saml/metadata">metadata</a></td></tr>
 		</tbody>
 	</table>
-	{{- if .SAMLAttributes }}
+	{{- if .SessionClaims }}
 	<table>
-		<caption>SAML Attributes</caption>
+		<caption>Session Claims</caption>
 		<tbody>
-			{{- range $kv := .SAMLAttributes }}
+			{{- range $kv := .SessionClaims }}
+			{{- range .Values }}
+			<tr>
+				<th>{{$kv.Name}}</th>
+				<td>{{.}}</td>
+			</tr>
+			{{- end}}
+			{{- end}}
+		</tbody>
+	</table>
+	{{- end}}
+	{{- if .SAMLClaims }}
+	<table>
+		<caption>SAML Claims</caption>
+		<tbody>
+			{{- range $kv := .SAMLClaims }}
 			{{- range .Values }}
 			<tr>
 				<th>{{$kv.Name}}</th>
@@ -109,7 +131,8 @@ func (a keyValues) Less(i, j int) bool {
 }
 
 type indexData struct {
-	SAMLAttributes keyValues
+	SessionClaims keyValues
+	SAMLClaims    keyValues
 }
 
 func OptionalAccount(m *samlsp.Middleware, handler http.Handler) http.Handler {
@@ -122,7 +145,26 @@ func OptionalAccount(m *samlsp.Middleware, handler http.Handler) http.Handler {
 	})
 }
 
-func getSAMLAttributes(s samlsp.Session) keyValues {
+func getSessionClaims(s samlsp.Session) keyValues {
+	if s == nil {
+		return keyValues{}
+	}
+	sc, ok := s.(samlsp.JWTSessionClaims)
+	if !ok {
+		return keyValues{}
+	}
+	result := keyValues{
+		{
+			// see https://github.com/crewjam/saml/blob/v0.4.12/samlsp/session_jwt.go#L46
+			Name:   "Subject (SAML Subject NameID)",
+			Values: []string{sc.Subject},
+		},
+	}
+	sort.Sort(result)
+	return result
+}
+
+func getSAMLClaims(s samlsp.Session) keyValues {
 	if s == nil {
 		return keyValues{}
 	}
@@ -130,12 +172,12 @@ func getSAMLAttributes(s samlsp.Session) keyValues {
 	if !ok {
 		return keyValues{}
 	}
-	samlAttributes := sa.GetAttributes()
-	result := make(keyValues, 0, len(samlAttributes))
-	for k := range samlAttributes {
+	attributes := sa.GetAttributes()
+	result := make(keyValues, 0, len(attributes))
+	for k := range attributes {
 		result = append(result, keyValue{
 			Name:   k,
-			Values: samlAttributes[k],
+			Values: attributes[k],
 		})
 	}
 	sort.Sort(result)
@@ -144,7 +186,8 @@ func getSAMLAttributes(s samlsp.Session) keyValues {
 
 func index(w http.ResponseWriter, r *http.Request) {
 	s := samlsp.SessionFromContext(r.Context())
-	samlAttributes := getSAMLAttributes(s)
+	sessionClaims := getSessionClaims(s)
+	samlClaims := getSAMLClaims(s)
 
 	var t *template.Template
 	var contentType string
@@ -161,7 +204,8 @@ func index(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", contentType)
 
 	err := t.ExecuteTemplate(w, "Index", indexData{
-		SAMLAttributes: samlAttributes,
+		SessionClaims: sessionClaims,
+		SAMLClaims:    samlClaims,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
