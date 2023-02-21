@@ -229,16 +229,29 @@ func logout(samlMiddleware *samlsp.Middleware, w http.ResponseWriter, r *http.Re
 
 		samlAttributes := sa.GetAttributes()
 
-		nameID := samlAttributes.Get("urn:oasis:names:tc:SAML:attribute:subject-id")
-		if nameID == "" {
-			nameID = samlAttributes.Get("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")
+		// handle samltest.id.
+		samlSubjectNameID := samlAttributes.Get("urn:oasis:names:tc:SAML:attribute:subject-id")
+
+		// handle azure ad.
+		if samlSubjectNameID == "" {
+			samlSubjectNameID = samlAttributes.Get("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")
 		}
-		if nameID == "" {
-			http.Error(w, "unable to infer SAML nameID", http.StatusBadRequest)
+
+		// handle everything else (hopefully).
+		if samlSubjectNameID == "" {
+			if sc, ok := session.(samlsp.JWTSessionClaims); ok {
+				samlSubjectNameID = sc.Subject
+			}
+		}
+
+		if samlSubjectNameID == "" {
+			http.Error(w, "unable to infer the SAML Subject NameID", http.StatusBadRequest)
 			return
 		}
 
-		u, err = samlMiddleware.ServiceProvider.MakeRedirectLogoutRequest(nameID, "")
+		// TODO why does azure ad still prompts us to choose the account to logout from?
+
+		u, err = samlMiddleware.ServiceProvider.MakeRedirectLogoutRequest(samlSubjectNameID, "")
 		if err != nil {
 			http.Error(w, "unable to create redirect url", http.StatusInternalServerError)
 			log.Panicf("Failed to MakeRedirectLogoutRequest: %s", err)
