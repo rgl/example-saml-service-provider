@@ -11,19 +11,22 @@ u = urlparse(url)
 
 qs = parse_qs(u.query)
 
-saml_request_deflated_base64 = qs['SAMLRequest'][0]
+data_base64 = qs['SAMLRequest'][0]
 
-saml_request_deflated = b64decode(saml_request_deflated_base64)
+data_deflated = b64decode(data_base64)
 
-saml_request = zlib.decompress(saml_request_deflated, -15)
+if data_deflated[0] != ord('<'):
+    data = zlib.decompress(data_deflated, -15)
+else:
+    data = data_deflated
 
-saml_request_xml = saml_request.decode('utf-8')
+data_xml = data.decode('utf-8')
 
-print('SAML Request XML:\n')
-print(saml_request_xml)
+print('XML:\n')
+print(data_xml)
 
-print('\nFormatted SAML Request XML:\n')
-saml_request_element = ET.fromstring(saml_request_xml)
-ET.indent(saml_request_element)
-print(ET.tostring(saml_request_element, encoding='unicode'))
+print('\nFormatted XML:\n')
+data_element = ET.fromstring(data_xml)
+ET.indent(data_element)
+print(ET.tostring(data_element, encoding='unicode'))
 print('\nWARNING: The previous formatted XML is not exactly like the original (e.g. XML prefixes might be different), but it should be semantically equivalent.')
