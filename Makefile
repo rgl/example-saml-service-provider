@@ -15,7 +15,7 @@ example-saml-service-provider-key.pem:
 		-out $(@:-key.pem=-crt.pem) \
 		-days 365 \
 		-nodes \
-		-subj //CN=localhost
+		-subj /CN=example-saml-service-provider
 
 clean:
 	rm -f example-saml-service-provider example-saml-service-provider-metadata.xml *.pem
