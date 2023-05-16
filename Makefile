@@ -16,6 +16,10 @@ example-saml-service-provider-key.pem:
 		-days 365 \
 		-nodes \
 		-subj /CN=example-saml-service-provider
+	openssl x509 \
+		-text \
+		-noout \
+		-in $(@:-key.pem=-crt.pem)
 
 clean:
 	rm -f example-saml-service-provider example-saml-service-provider-metadata.xml *.pem
