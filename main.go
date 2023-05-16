@@ -155,7 +155,7 @@ func getSessionClaims(s samlsp.Session) keyValues {
 	}
 	result := keyValues{
 		{
-			// see https://github.com/crewjam/saml/blob/v0.4.12/samlsp/session_jwt.go#L46
+			// see https://github.com/crewjam/saml/blob/v0.4.13/samlsp/session_jwt.go#L46
 			Name:   "Subject (SAML Subject NameID)",
 			Values: []string{sc.Subject},
 		},

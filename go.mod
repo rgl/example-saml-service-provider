@@ -2,7 +2,7 @@ module github.com/rgl/example-saml-service-provider
 
 go 1.20
 
-require github.com/crewjam/saml v0.4.12
+require github.com/crewjam/saml v0.4.13
 
 require (
 	github.com/beevik/etree v1.1.0 // indirect
