@@ -10,6 +10,7 @@ example-saml-service-provider-key.pem:
 	openssl req \
 		-x509 \
 		-newkey rsa:2048 \
+		-sha256 \
 		-keyout $@ \
 		-out $(@:-key.pem=-crt.pem) \
 		-days 365 \
